@@ -1,0 +1,77 @@
+User-based:(適用於物品數量>使用者個數)
+先針對user-A偏好的物品去做計算 再跟不同user之間計算出來的值去做比對 找出相似的user-B 然後將A偏好的物品而B裡沒有的推薦給B 
+===>
+最近鄰搜索(Nearest neighbor search, NNS) : 以使用者為基礎（User-based）的協同過濾的出發點是與使用者興趣愛好相同的另一組使用者，就是計算兩個使用者的相似度。
+例如：尋找n個和A有相似興趣使用者，把他們對M的評分作為A對M的評分預測。
+推薦結果 : 透過對A使用者的最近鄰使用者進行統計，選擇出現頻率高且在A使用者的評分項目中不存在的，作為推薦結果。
+
+
+Item-based:(適用於使用者個數>物品數量)
+針對不同物品間去計算相似度，得到物品的相似物品後，根據用戶歷史的偏好預測當前用戶還沒有表示偏好的物品，計算得到一個排序的物品列表作為推薦。
+===>
+先計算已評價項目和待預測項目的相似度，並以相似度作為權重，加權各已評價項目的分數，得到待預測項目的預測值。
+例如：要對項目 A 和項目 B 進行相似性計算，要先找出同時對 A 和 B 打過分的組合，對這些組合進行相似度計算，常用的演算法同以使用者為基礎（User-based）的協同過濾。
+推薦結果 : 以項目為基礎的協同過濾不用考慮使用者間的差別，所以精度比較差。但是卻不需要使用者的歷史資料，或是進行使用者識別。對於項目來講，
+它們之間的相似性要穩定很多，因此可以離線完成工作量最大的相似性計算步驟，從而降低了線上計算量，提高推薦效率，尤其是在"使用者多於項目"的情形下尤為顯著。
+=================================================================================================================================================================
+Evaluating Mahout based Recommender Implementations:
+In mahout recommender evaluators, a part of the real preference data set is kept as test data. These test preferences won’t be there in the training data set 
+(actual data set – test data set) which is fed to the recommender under evaluation (ie all data other than the test data is fed into the recommender as input). 
+The recommender internal generates preferences for the test data and these calculated values are compared to actual values in the data set.
+
+
+判斷準確度指標:
+1.Average Absolute Difference Evaluator(預測跟實際值去做比對 越小越好)
+	The average difference between the actual and estimates preference is calculated. Lower the value better the recommendations. 
+	Lower values means the estimated preference differed from the actual preferences only in a smaller extent. 
+	If this value is 0 it indicates that both the estimated and actual preferences are the same means perfect recommendations.
+(舉個例子：某個書評網站正在開發一個推薦系統，而你是一個讀書愛好者，並且是這個書評網站的忠實用戶，你在該網站上對很多書進行了點評和打分（1～5分）。
+ 假設這個時候該網站已經基於上文中提到的各種相似度計算方法實現了多種推薦算法，正在評測哪一種相似度計算方法對他們來說最優？
+ 那麼我上面回復中提到的“判斷哪種相似性度量方法更合適”的方法具體一點（細化到個人）就是把你打分的所有書都拿出來，假設你一共對10 本書進行了打分，
+ 那麼就把這10本書中的9 本拿出來（作為訓練數據），留下一本名叫B_Test（作為測試數據）。然後根據你對這9 本書的打分，去預測你會對B_Test 打多少分，
+ 並把這個預測的分值和你對B_Test 的真實打分進行比較，誤差（比如RMSE）越小就表示該種相似度計算方法對你的數據集來說更優！)
+ 
+2.Root Mean Square Evaluator(RMS)(預測跟實際值去做比對 越小越好)
+	Here we calculate the value of difference as the square root of the average of the squares of the differences between actual and estimated recommendations. 
+	In this evaluation also lower the score value better the recommendations. Also 0 refers to perfect recommendations.
+Method:
+double evaluate(RecommenderBuilder recommenderBuilder,
+                DataModelBuilder dataModelBuilder,
+                DataModel dataModel,
+                double trainingPercentage,
+                double evaluationPercentage)
+recommenderBuilder - object that can build a Recommender to test
+dataModelBuilder - DataModelBuilder to use, or if null, a default DataModel implementation will be used
+dataModel - dataset to test on
+trainingPercentage - percentage of each user's preferences to use to produce recommendations; 
+					 the rest are compared to estimated preference values to evaluate Recommender performance
+evaluationPercentage - percentage of users to use in evaluation	
+
+-----------------------------------------------------------------------------------------------------------------
+3.precision:	精確率 (A/A+C)x100%
+4.recall:		查全率 (A/A+B)x100%
+A:相關且被檢索到的
+B:相關但未被檢所到
+C:不相關被檢所到
+
+3跟4互相制約
+如果希望索引出更多數據 精確率會下降
+如果希望索引出更準確時 查全率會下降
+
+Method:
+IRStatistics evaluate(RecommenderBuilder recommenderBuilder,
+                      DataModelBuilder dataModelBuilder,
+                      DataModel dataModel,
+                      IDRescorer rescorer,
+                      int at,
+                      double relevanceThreshold,
+                      double evaluationPercentage)
+recommenderBuilder - object that can build a Recommender to test
+dataModelBuilder - DataModelBuilder to use, or if null, a default DataModel implementation will be used.
+				   Null would indicate the default value and it would be fine as long as you are not using 
+				   any specialized implementation of DataModel in your recommender implementation.
+dataModel - dataset to test on
+Rescorer - if any, to use when computing recommendations
+At - as in, "precision at 5". The number of recommendations to consider when evaluating precision
+relevanceThreshold - items whose preference value is at least this value are considered "relevant" for the purposes of computations
+evaluationPercentage - percentage of users to use in evaluation
